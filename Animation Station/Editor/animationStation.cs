@@ -16,6 +16,8 @@ public class animationStation : EditorWindow
     public string location;
     public string animationName;
     public AnimationClip animation;
+    public bool includeVRC = false;
+    public bool hideVRC = true;
 
     //ToolBar
     public int toolbarIndex = 0;
@@ -26,7 +28,7 @@ public class animationStation : EditorWindow
 
     private void OnGUI()
     {
-        GUILayout.Label("Version: 1.1");
+        GUILayout.Label("Version: 1.2");
 
         switch(toolbarIndex)
         {
@@ -60,7 +62,7 @@ public class animationStation : EditorWindow
                         {
                             if(location == "Assets/Yelby/Programs/Animation Station/" + objectShape.name)
                                 createFolder(root, objectShape);
-                            createAnimation(location, blendshapesMesh, animationName);
+                            createAnimation(location, blendshapesMesh, animationName, includeVRC);
                         }
 
                         if (GUILayout.Button("Zero Out"))
@@ -73,18 +75,12 @@ public class animationStation : EditorWindow
                         EditorGUILayout.EndHorizontal();
 
                         EditorGUILayout.BeginHorizontal();
-
-                        /*location = EditorGUILayout.TextField("Save Location: ", location);
-                        if(GUILayout.Button("Open File"))
-                        {
-                            location = EditorUtility.OpenFolderPanel("Animation Export Location", "", "");
-                            location += "/";
-                        }*/
-
+                        includeVRC = EditorGUILayout.Toggle("Include vrc.", includeVRC);
+                        hideVRC = EditorGUILayout.Toggle("Hide vrc.", hideVRC);
                         EditorGUILayout.EndHorizontal();
 
                         blendshapesMesh = getBlendshapes(objectShape);
-                        guiSliders(blendshapesMesh);
+                        guiSliders(blendshapesMesh, includeVRC, hideVRC);
                     }
                     break;
                 }
@@ -111,7 +107,7 @@ public class animationStation : EditorWindow
         return bodyMesh.GetComponent<SkinnedMeshRenderer>();
     }
 
-    private void guiSliders(SkinnedMeshRenderer blendshapesMesh)
+    private void guiSliders(SkinnedMeshRenderer blendshapesMesh, bool includeVRC, bool hideVRC)
     {
         Mesh blendshapes = blendshapesMesh.sharedMesh;
         int size = blendshapes.blendShapeCount;
@@ -128,6 +124,9 @@ public class animationStation : EditorWindow
             string name = blendshapes.GetBlendShapeName(i).ToLower();
             if (name.Contains(searchBarSearch.ToLower()))
             {
+                if (hideVRC)
+                    if (blendshapes.GetBlendShapeName(i).Contains("vrc."))
+                        continue;
                 slidersIndex[i] = EditorGUILayout.Slider(blendshapes.GetBlendShapeName(i), slidersIndex[i], 0, 100);
             }
             blendshapesMesh.SetBlendShapeWeight(i, slidersIndex[i]);
@@ -135,7 +134,7 @@ public class animationStation : EditorWindow
         EditorGUILayout.EndScrollView();
     }
 
-    private void createAnimation(string location, SkinnedMeshRenderer blendshapeMesh, string name)
+    private void createAnimation(string location, SkinnedMeshRenderer blendshapeMesh, string name, bool includeVRC)
     {
         AnimationClip clip = new AnimationClip();
         clip.legacy = false;
@@ -147,6 +146,12 @@ public class animationStation : EditorWindow
 
         for(int i = 0; i < size; i++)
         {
+            if(!includeVRC)
+            {
+                if (blenshapes.GetBlendShapeName(i).Contains("vrc."))
+                    continue;
+            }
+
             keys[0] = new Keyframe(0, blendshapeMesh.GetBlendShapeWeight(i)); //Set the key
 
             //Add the key
