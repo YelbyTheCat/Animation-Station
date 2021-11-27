@@ -52,11 +52,9 @@ public class animationStation : EditorWindow
                         }
 
                         EditorGUILayout.EndHorizontal();
-                        if (location == null || location == "")
-                        {
-                            string name = cleanName(objectShape.name);
-                            location = "Assets/Yelby/Programs/Animation Station/" + name + "/";
-                        }
+
+                        string name = cleanName(objectShape.name);
+                        location = "Assets/Yelby/Programs/Animation Station/" + name + "/";
 
                         EditorGUILayout.BeginHorizontal();
                         animationName = EditorGUILayout.TextField("Animation Name: ", animationName);
@@ -181,6 +179,8 @@ public class animationStation : EditorWindow
             curve = new AnimationCurve(keys);
             clip.SetCurve(blendshapeMesh.name, typeof(SkinnedMeshRenderer), "blendShape." + blenshapes.GetBlendShapeName(i), curve);
         }
+
+        Debug.Log(location + name + ".anim");
         AssetDatabase.CreateAsset(clip, location + name + ".anim");
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
