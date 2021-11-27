@@ -33,7 +33,7 @@ public class animationStation : EditorWindow
 
     private void OnGUI()
     {
-        GUILayout.Label("Version: 1.3");
+        GUILayout.Label("Version: 1.4");
 
         toolbarIndex = GUILayout.Toolbar(toolbarIndex, toolbar);
         switch(toolbarIndex)
@@ -67,8 +67,7 @@ public class animationStation : EditorWindow
 
                         if (GUILayout.Button("Generate Animation"))
                         {
-                            if(location == "Assets/Yelby/Programs/Animation Station/" + objectShape.name)
-                                createFolder(root, objectShape);
+                            createFolder(root, objectShape);
                             createAnimation(location, blendshapesMesh, animationName, includeVRC);
                         }
 
@@ -195,6 +194,7 @@ public class animationStation : EditorWindow
         string tempRoot = root;
         tempRoot = tempRoot.Substring(0, tempRoot.Length - 1);
 
+        Debug.Log(root + name);
         if (!AssetDatabase.IsValidFolder(root + name))
         {
             AssetDatabase.CreateFolder(tempRoot, name);
