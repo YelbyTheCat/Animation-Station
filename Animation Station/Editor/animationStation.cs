@@ -19,17 +19,23 @@ public class animationStation : EditorWindow
     public bool includeVRC = false;
     public bool hideVRC = true;
 
+    //Injector - Case 1
+    public AnimationClip hostAnimation;
+    public List<AnimationClip> clips = new List<AnimationClip>();
+    public bool removeAnimation = false;
+
     //ToolBar
     public int toolbarIndex = 0;
-    public string[] toolbar = { "Blendshapes" };
+    public string[] toolbar = { "Blendshapes" , "Injector" };
 
     [MenuItem("Yelby/Animation Station")]
     public static void ShowWindow() { GetWindow<animationStation>("Animation Station"); }
 
     private void OnGUI()
     {
-        GUILayout.Label("Version: 1.2");
+        GUILayout.Label("Version: 1.3");
 
+        toolbarIndex = GUILayout.Toolbar(toolbarIndex, toolbar);
         switch(toolbarIndex)
         {
             case 0:
@@ -46,9 +52,10 @@ public class animationStation : EditorWindow
                         }
 
                         EditorGUILayout.EndHorizontal();
-                        if (location == null)
+                        if (location == null || location == "")
                         {
-                            location = "Assets/Yelby/Programs/Animation Station/" + objectShape.name + "/";
+                            string name = cleanName(objectShape.name);
+                            location = "Assets/Yelby/Programs/Animation Station/" + name + "/";
                         }
 
                         EditorGUILayout.BeginHorizontal();
@@ -81,6 +88,23 @@ public class animationStation : EditorWindow
 
                         blendshapesMesh = getBlendshapes(objectShape);
                         guiSliders(blendshapesMesh, includeVRC, hideVRC);
+                    }
+                    break;
+                }
+            case 1:
+                {
+                    EditorGUILayout.BeginHorizontal();
+                    hostAnimation = EditorGUILayout.ObjectField("Animation to Inject: ", hostAnimation, typeof(AnimationClip), true) as AnimationClip;
+                    removeAnimation = EditorGUILayout.Toggle("Remove Keys", removeAnimation);
+                    EditorGUILayout.EndHorizontal();
+                    guiAnimations();
+
+                    if(hostAnimation != null && (clips.Count == 0 || clips[0] != null))
+                    {
+                        if(GUILayout.Button("Inject"))
+                        {
+                            injectAnimations(hostAnimation, clips);
+                        }
                     }
                     break;
                 }
@@ -158,7 +182,6 @@ public class animationStation : EditorWindow
             curve = new AnimationCurve(keys);
             clip.SetCurve(blendshapeMesh.name, typeof(SkinnedMeshRenderer), "blendShape." + blenshapes.GetBlendShapeName(i), curve);
         }
-
         AssetDatabase.CreateAsset(clip, location + name + ".anim");
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -214,5 +237,78 @@ public class animationStation : EditorWindow
                 }
             }
         }
+    }
+
+    //Injector
+    private void guiAnimations()
+    {
+        if (clips.Count == 0)
+        {
+            clips.Add(default);
+        }
+
+        for(int i = 0; i < clips.Count; i++)
+        {
+            clips[i] = EditorGUILayout.ObjectField(i.ToString(), clips[i], typeof(AnimationClip), true) as AnimationClip;
+        }
+
+        if(clips[clips.Count - 1] != null)
+        {
+            clips.Add(default);
+        }
+
+        for (int i = 0; i < clips.Count; i++)
+            if ((clips[i] == null) && (i < clips.Count - 1))
+                clips.RemoveAt(i);
+    }
+
+    private void injectAnimations(AnimationClip host, List<AnimationClip> clips)
+    {
+        AnimationClipCurveData[] hostCurve = AnimationUtility.GetAllCurves(host);
+        AnimationClipCurveData[] clientCurve;
+
+        bool noSkip = false;
+
+        for(int i = 0; i < clips.Count - 1; i++) //Clips
+        {
+            clientCurve = AnimationUtility.GetAllCurves(clips[i]);
+            
+            for(int hostIndex = 0; hostIndex < hostCurve.Length; hostIndex++) // Host
+            {
+                for(int clientIndex = 0; clientIndex < clientCurve.Length; clientIndex++)//Client
+                {
+                    if(hostCurve[hostIndex].propertyName == clientCurve[clientIndex].propertyName)
+                    {
+                        if(removeAnimation)
+                        {
+                            inject(clips[i], hostCurve[hostIndex]);
+                        }
+                        noSkip = false;
+                        break;
+                    }
+                    noSkip = true;
+                }
+                if(noSkip)
+                {
+                    inject(clips[i], hostCurve[hostIndex]);
+                }
+            }
+        }
+    }
+
+    private void inject(AnimationClip clip, AnimationClipCurveData data)
+    {
+        Keyframe[] key = new Keyframe[1];
+        key[0] = new Keyframe(0, data.curve.keys[0].value);
+        AnimationCurve curve = new AnimationCurve(key);
+
+        Debug.Log(data.propertyName);
+        Debug.Log(data.path);
+
+        clip.SetCurve(data.path, typeof(SkinnedMeshRenderer), data.propertyName, removeAnimation ? null : curve);
+        //clip.SetCurve(blendshapesMesh.name, typeof(SkinnedMeshRenderer), data.propertyName, removeAnimation ? null : curve);
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
     }
 }
