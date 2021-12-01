@@ -1,3 +1,7 @@
+1.5
+    Removes entire properties
+    Injects only the FIRST keyframe (Will update to add all later)
+
 1.4
     Fixed folder not generating
 
