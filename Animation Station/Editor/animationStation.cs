@@ -33,7 +33,7 @@ public class animationStation : EditorWindow
 
     private void OnGUI()
     {
-        GUILayout.Label("Version: 1.4");
+        GUILayout.Label("Version: 1.5");
 
         toolbarIndex = GUILayout.Toolbar(toolbarIndex, toolbar);
         switch(toolbarIndex)
@@ -101,6 +101,8 @@ public class animationStation : EditorWindow
                         if(GUILayout.Button("Inject"))
                         {
                             injectAnimations(hostAnimation, clips);
+                            AssetDatabase.SaveAssets();
+                            EditorUtility.DisplayDialog("Animation Station: Injector", "All animations injected", "OK");
                         }
                     }
                     break;
@@ -302,13 +304,42 @@ public class animationStation : EditorWindow
         key[0] = new Keyframe(0, data.curve.keys[0].value);
         AnimationCurve curve = new AnimationCurve(key);
 
-        Debug.Log(data.propertyName);
-        Debug.Log(data.path);
+        string dataPropertyName = data.propertyName;
 
-        clip.SetCurve(data.path, typeof(SkinnedMeshRenderer), data.propertyName, removeAnimation ? null : curve);
+        if(removeAnimation)
+            switch(dataPropertyName)
+            {
+                case "localEulerAnglesRaw.x":
+                case "localEulerAnglesRaw.y":
+                case "localEulerAnglesRaw.z":
+                    dataPropertyName = "m_LocalEuler";
+                    break;
+
+                case "m_LocalPosition.x":
+                case "m_LocalPosition.y":
+                case "m_LocalPosition.z":
+                    dataPropertyName = "m_LocalPosition";
+                    break;
+
+                case "m_LocalScale.x":
+                case "m_LocalScale.y":
+                case "m_LocalScale.z":
+                    dataPropertyName = "m_LocalScale";
+                    break;
+
+                case "m_LocalRotation.x":
+                case "m_LocalRotation.y":
+                case "m_LocalRotation.z":
+                case "m_LocalRotation.w":
+                    dataPropertyName = "m_LocalRotation";
+                    break;
+            }
+
+        clip.SetCurve(data.path, data.type, dataPropertyName, removeAnimation ? null : curve);
+        //clip.SetCurve(data.path, typeof(SkinnedMeshRenderer), data.propertyName, removeAnimation ? null : curve);
         //clip.SetCurve(blendshapesMesh.name, typeof(SkinnedMeshRenderer), data.propertyName, removeAnimation ? null : curve);
 
-        AssetDatabase.SaveAssets();
-        AssetDatabase.Refresh();
+        //AssetDatabase.SaveAssets();
+        //AssetDatabase.Refresh();
     }
 }
