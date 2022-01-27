@@ -2,11 +2,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
-using blendShapeProxy = VRM.VRMBlendShapeProxy;
-using blendShapeAvatar = VRM.BlendShapeAvatar;
-using blendShapeClips = VRM.BlendShapeClip;
-using blendShapeBinding = VRM.BlendShapeBinding;
-using System;
 
 public class animationStation : EditorWindow
 {
@@ -23,25 +18,23 @@ public class animationStation : EditorWindow
     public AnimationClip animation;
     public bool includeVRC = false;
     public bool hideVRC = true;
+    public bool onlyNonZero = false;
 
     //Injector - Case 1
     public AnimationClip hostAnimation;
     public List<AnimationClip> clips = new List<AnimationClip>();
     public bool removeAnimation = false;
 
-    //VRM - Case 2
-    private int choice = 0;
-
     //ToolBar
     public int toolbarIndex = 0;
-    public string[] toolbar = { "Blendshapes" , "Injector" , "VRM"};
+    public string[] toolbar = { "Blendshapes" , "Injector" };
 
     [MenuItem("Yelby/Animation Station")]
     public static void ShowWindow() { GetWindow<animationStation>("Animation Station"); }
 
     private void OnGUI()
     {
-        GUILayout.Label("Version: 1.5.1 [VRM]");
+        GUILayout.Label("Version: 1.6");
 
         toolbarIndex = GUILayout.Toolbar(toolbarIndex, toolbar);
         switch(toolbarIndex)
@@ -51,6 +44,9 @@ public class animationStation : EditorWindow
                     objectShape = EditorGUILayout.ObjectField("Object: ", objectShape, typeof(GameObject), true) as GameObject;
                     if (objectShape != null)
                     {
+                        blendshapesMesh = EditorGUILayout.ObjectField("Mesh: ", blendshapesMesh, typeof(SkinnedMeshRenderer), true) as SkinnedMeshRenderer;
+                        if (blendshapesMesh == null)
+                            return;
                         EditorGUILayout.BeginHorizontal();
 
                         animation = EditorGUILayout.ObjectField("Animation: ", animation, typeof(AnimationClip), true) as AnimationClip;
@@ -86,12 +82,13 @@ public class animationStation : EditorWindow
                         }
                         EditorGUILayout.EndHorizontal();
 
-                        EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.BeginVertical();
                         includeVRC = EditorGUILayout.Toggle("Include vrc.", includeVRC);
                         hideVRC = EditorGUILayout.Toggle("Hide vrc.", hideVRC);
-                        EditorGUILayout.EndHorizontal();
+                        onlyNonZero = EditorGUILayout.Toggle("Include non-zero", onlyNonZero);
+                        EditorGUILayout.EndVertical();
 
-                        blendshapesMesh = getBlendshapes(objectShape);
+                        //blendshapesMesh = getBlendshapes(objectShape);
                         guiSliders(blendshapesMesh, includeVRC, hideVRC);
                     }
                     break;
@@ -115,77 +112,6 @@ public class animationStation : EditorWindow
                     }
                     break;
                 }
-            case 2:
-                {
-                    objectShape = EditorGUILayout.ObjectField("Object: ", objectShape, typeof(GameObject), true) as GameObject;
-                    if(objectShape != null)
-                    {
-                        slidersIndex = new List<float>();
-                        blendShapeProxy blendShapeProxy = objectShape.GetComponent<blendShapeProxy>();
-                        List<blendShapeClips> clips = blendShapeProxy.BlendShapeAvatar.Clips;
-                        blendshapesMesh = getBlendshapes(objectShape);
-
-                        EditorGUILayout.BeginHorizontal();
-                        if(GUILayout.Button("Pull"))
-                        {
-                            PullProxyCips(clips, blendshapesMesh);
-                        }
-                        if (GUILayout.Button("Update"))
-                        {
-                            UpdateProxyClip(clips, blendshapesMesh);
-                        }
-                        EditorGUILayout.EndHorizontal();
-
-                        EditorGUILayout.BeginHorizontal();
-                        //includeVRC = EditorGUILayout.Toggle("Include vrc.", includeVRC);
-                        hideVRC = EditorGUILayout.Toggle("Hide vrc.", hideVRC);
-                        EditorGUILayout.EndHorizontal();
-
-                        guiSlidersVRM(blendshapesMesh, includeVRC, hideVRC, clips);
-
-                        if(GUILayout.Button("Get Components"))
-                        {
-                            for(int i = 0; i < clips.Count; i++)
-                            {
-                                Debug.Log(i + " " + clips[i].name);
-                                for(int j = 0; j < clips[i].Values.Length; j++)
-                                {
-                                    Debug.Log("[] " + clips[i].name + " | " + clips[i].Values[j].Weight + " | " + clips[i].Values[j].ToString() + " | " + clips[i].Values[j].RelativePath);
-                                }
-                            }
-                        }
-                    }
-
-
-                    break;
-                }
-        }
-    }
-
-    private void UpdateProxyClip(List<blendShapeClips> blendShapeClip, SkinnedMeshRenderer blendshapesMesh)
-    {
-        for(int i = 0; i < blendshapesMesh.sharedMesh.blendShapeCount; i++)
-        {
-            //Debug.Log(blendShapeClip.Values[i].Index + " " + blendShapeClip.Values[i].Weight);
-            float weight = blendshapesMesh.GetBlendShapeWeight(i);
-            if(weight > 0f)
-                blendShapeClip[choice].Values = addBinding(blendShapeClip[choice].Values, i, weight);
-        }
-
-        AssetDatabase.SaveAssets();
-        AssetDatabase.Refresh();
-    }
-
-    private void PullProxyCips(List<blendShapeClips> clips, SkinnedMeshRenderer blendshapesMesh)
-    {
-        for(int i = 0; i < blendshapesMesh.sharedMesh.blendShapeCount; i++)
-        {
-            blendshapesMesh.SetBlendShapeWeight(i, 0);
-        }
-
-        for(int i = 0; i < clips[choice].Values.Length; i++)
-        {
-            blendshapesMesh.SetBlendShapeWeight(clips[choice].Values[i].Index, clips[choice].Values[i].Weight);
         }
     }
 
@@ -236,58 +162,6 @@ public class animationStation : EditorWindow
         EditorGUILayout.EndScrollView();
     }
 
-    private void guiSlidersVRM(SkinnedMeshRenderer blendshapesMesh, bool includeVRC, bool hideVRC, List<blendShapeClips> clips)
-    {
-        Mesh blendshapes = blendshapesMesh.sharedMesh;
-        int size = blendshapes.blendShapeCount;
-
-
-        string[] clipsList = new string[clips.Count];
-        for(int i = 0; i < clipsList.Length; i++)
-        {
-            clipsList[i] = clips[i].name;
-        }
-
-        choice = EditorGUILayout.Popup(choice, clipsList);
-
-        searchBarSearch = EditorGUILayout.TextField("Search: ", searchBarSearch);
-        scrollBarLocation = EditorGUILayout.BeginScrollView(scrollBarLocation);
-        for (int i = 0; i < size; i++)
-        {
-            if (slidersIndex.Count < size)
-                slidersIndex.Add(0.0f);
-            
-            slidersIndex[i] = blendshapesMesh.GetBlendShapeWeight(i);
-
-            string name = blendshapes.GetBlendShapeName(i).ToLower();
-            if (name.Contains(searchBarSearch.ToLower()))
-            {
-                if (hideVRC)
-                    if (blendshapes.GetBlendShapeName(i).Contains("vrc."))
-                        continue;
-                slidersIndex[i] = EditorGUILayout.Slider(blendshapes.GetBlendShapeName(i), slidersIndex[i], 0, 100);
-            }
-
-            blendshapesMesh.SetBlendShapeWeight(i, slidersIndex[i]);
-        }
-        EditorGUILayout.EndScrollView();
-    }
-
-    private blendShapeBinding[] addBinding(blendShapeBinding[] values, int index, float weight)
-    {
-        blendShapeBinding[] blendShapeBindings = new blendShapeBinding[values.Length + 1];
-        blendShapeBinding binding = new blendShapeBinding();
-        binding.Weight = weight;
-        binding.Index = index;
-        binding.RelativePath = blendshapesMesh.name;
-        for(int i = 0; i < values.Length; i++)
-        {
-            blendShapeBindings[i] = values[i];
-        }
-        blendShapeBindings[blendShapeBindings.Length - 1] = binding;
-        return blendShapeBindings;
-    }
-
     private void createAnimation(string location, SkinnedMeshRenderer blendshapeMesh, string name, bool includeVRC)
     {
         AnimationClip clip = new AnimationClip();
@@ -305,6 +179,9 @@ public class animationStation : EditorWindow
                 if (blenshapes.GetBlendShapeName(i).Contains("vrc."))
                     continue;
             }
+            if (!onlyNonZero)
+                if (blendshapesMesh.GetBlendShapeWeight(i) == 0)
+                    continue;
 
             keys[0] = new Keyframe(0, blendshapeMesh.GetBlendShapeWeight(i)); //Set the key
 
